@@ -1,171 +1,578 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
+<script src="https://tools.digiday.cz/nex-guard.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QARO e-Deska — generátor widgetu úřední desky</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Montserrat:wght@300&display=swap" rel="stylesheet">
+<title>Úřední deska | DigiDay</title>
 <style>
-    * { box-sizing: border-box; }
-    html, body {
-        margin: 0;
-        padding: 0;
-        background: #f3f4f6;
-        color: #111827;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        font-size: 15px;
-        line-height: 1.5;
+
+  /* ── QARO / DigiDay vizuál (zhodný s QARO SMS, importerem a generátorem widgetů) ──
+     Tmavá téma je výchozí, světlá se aktivuje html[data-theme="light"]
+     a přepíná jen CSS proměnné. */
+
+  :root {
+    color-scheme: dark;
+
+    --pink:      #f5127b;
+    --pink2:     #ff3d9a;
+    --pink-grad: linear-gradient(90deg, #f5127b, #a50c5e);
+    --pink-dim:  rgba(245, 18, 123, 0.15);
+
+    --bg:   #150f26;
+    --sur1: rgba(29, 21, 51, 0.8);
+    --sur2: rgba(255, 255, 255, 0.05);
+    --sur3: rgba(255, 255, 255, 0.1);
+    --sur-solid: #241b40;
+    --bdr:  rgba(255, 255, 255, 0.1);
+    --bdr2: rgba(255, 255, 255, 0.18);
+
+    --txt:  #f1f5f9;
+    --txt2: #94a3b8;
+    --txt3: #64748b;
+
+    --cyan: #67e8f9;
+
+    --checker1: #1a1432;
+    --checker2: #241b40;
+
+    --blob1: rgba(192, 38, 211, 0.1);
+    --blob2: rgba(124, 58, 237, 0.1);
+
+    --shadow-card: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.25);
+    --shadow-pink: 0 10px 15px -3px rgba(134, 25, 143, 0.2), 0 4px 6px -4px rgba(134, 25, 143, 0.2);
+  }
+
+  html[data-theme="light"] {
+    color-scheme: light;
+
+    --pink-dim: rgba(245, 18, 123, 0.12);
+
+    --bg:   #eef1f6;
+    --sur1: #ffffff;
+    --sur2: #f1f5f9;
+    --sur3: #e2e8f0;
+    --sur-solid: #e2e8f0;
+    --bdr:  #e2e8f0;
+    --bdr2: #cbd5e1;
+
+    --txt:  #0f172a;
+    --txt2: #475569;
+    --txt3: #64748b;
+
+    --cyan: #0e7490;
+
+    --checker1: #e9eef2;
+    --checker2: #f7fafb;
+
+    --blob1: rgba(217, 70, 239, 0.07);
+    --blob2: rgba(139, 92, 246, 0.07);
+
+    --shadow-card: 0 12px 32px rgba(15, 17, 21, 0.06), 0 4px 12px rgba(15, 17, 21, 0.04);
+    --shadow-pink: 0 6px 24px rgba(245, 18, 123, 0.22), 0 2px 8px rgba(245, 18, 123, 0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Geist", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--txt);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: var(--pink); color: #fff; }
+
+  /* ---------- shell: sidebar + obsah ---------- */
+
+  .shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+  .sidebar {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 12px 16px;
+    background: linear-gradient(160deg, #f5127b 0%, #c9106a 55%, #8c0a52 100%);
+  }
+
+  .sidebar .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
+  .sidebar .logo img { height: 24px; width: auto; filter: brightness(0) invert(1); display: block; }
+  .sidebar .logo span {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .sidebar nav { display: flex; flex: 1; min-width: 0; justify-content: space-evenly; gap: 6px; }
+
+  .navlink {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    transition: background .15s, color .15s;
+    flex-shrink: 0;
+  }
+  .navlink:hover { background: rgba(0, 0, 0, 0.15); color: #fff; }
+  .navlink.aktivni { background: rgba(21, 15, 38, 0.8); color: #67e8f9; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15); }
+  .navlink svg { width: 20px; height: 20px; flex-shrink: 0; }
+  .navlink .popisek { display: none; }
+
+  @media (min-width: 640px) {
+    .navlink .popisek { display: inline; }
+  }
+
+  @media (min-width: 1000px) {
+    .shell { flex-direction: row; }
+    .sidebar {
+      width: 256px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 32px 20px;
+      overflow-y: auto;
     }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
-    h1 { font-size: 24px; margin: 0 0 4px; }
-    .sub { color: #6b7280; margin: 0 0 28px; font-size: 14px; }
-    .card {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-bottom: 20px;
-    }
-    label { display: block; font-weight: 600; font-size: 14px; margin: 14px 0 4px; }
-    label:first-child { margin-top: 0; }
-    .hint { font-weight: 400; color: #6b7280; font-size: 13px; }
-    input[type="text"], input[type="number"] {
-        width: 100%;
-        padding: 9px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        font-size: 14px;
-        font-family: inherit;
-    }
-    input:focus { outline: 2px solid #2563eb33; border-color: #2563eb; }
-    .row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .row > div { flex: 1; min-width: 140px; }
-    .out {
-        display: block;
-        width: 100%;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 10px 12px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 13px;
-        word-break: break-all;
-        white-space: pre-wrap;
-        margin: 4px 0 8px;
-    }
-    button.copy {
-        background: #111827;
-        color: #fff;
-        border: 0;
-        border-radius: 8px;
-        padding: 8px 16px;
-        font-size: 14px;
-        cursor: pointer;
-        font-family: inherit;
-    }
-    button.copy:hover { background: #1f2937; }
-    .ok { color: #059669; font-size: 13px; margin-left: 10px; }
-    iframe.preview {
-        width: 100%;
-        height: 640px;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        background: #fff;
-    }
-    .note { font-size: 13px; color: #6b7280; }
-    .note code { background: #eef0f3; padding: 1px 5px; border-radius: 4px; }
+    .sidebar .logo { margin: 0 8px 40px; }
+    .sidebar .logo img { height: 32px; }
+    .sidebar .logo span { font-size: 15px; }
+    .sidebar nav { flex-direction: column; justify-content: flex-start; gap: 6px; }
+    .sidebar .navlink-spodni { margin-top: 24px; }
+  }
+
+  .obsah { position: relative; flex: 1; overflow-x: hidden; }
+
+  /* dekorace pozadí jako v QARO SMS */
+  .deko { position: absolute; inset: 0; pointer-events: none; }
+  .deko-1 { position: absolute; top: -96px; right: 40px; width: 288px; height: 288px; border-radius: 50%; background: var(--blob1); filter: blur(64px); }
+  .deko-2 { position: absolute; bottom: 0; left: 33%; width: 320px; height: 320px; border-radius: 50%; background: var(--blob2); filter: blur(64px); }
+  .deko-3 { position: absolute; top: 96px; right: 96px; width: 80px; height: 80px; border-radius: 16px; border: 1px solid rgba(217, 70, 239, 0.15); transform: rotate(12deg); }
+  .deko-4 { position: absolute; bottom: 96px; right: 25%; width: 56px; height: 56px; border-radius: 12px; border: 1px solid rgba(34, 211, 238, 0.1); transform: rotate(-12deg); }
+
+  .obsah-inner {
+    position: relative;
+    z-index: 10;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  .topbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 24px; }
+
+  #b-tema {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--bdr);
+    background: var(--sur2);
+    color: var(--txt2);
+    cursor: pointer;
+  }
+  #b-tema:hover { background: var(--sur3); }
+  #b-tema svg { width: 16px; height: 16px; }
+
+  .chip-info {
+    border: 1px solid var(--bdr);
+    background: var(--sur2);
+    color: var(--txt2);
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .hlavicka { margin-bottom: 24px; }
+  .hlavicka .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.18em; color: var(--txt3); }
+  .hlavicka h1 { margin-top: 8px; font-size: 1.875rem; font-weight: 800; letter-spacing: -0.025em; }
+  .hlavicka h1 span { color: var(--pink2); }
+  .hlavicka p { margin-top: 6px; font-size: .9rem; color: var(--txt2); max-width: 720px; }
+
+  /* ---------- workbench ---------- */
+
+  main {
+    display: grid;
+    grid-template-columns: 420px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--sur1);
+    border: 1px solid var(--bdr);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 14px;
+  }
+
+  .pole { margin-bottom: 14px; }
+
+  .pole label {
+    display: block;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--txt2);
+    margin-bottom: 5px;
+  }
+
+  .pole input[type="text"],
+  .pole input[type="url"],
+  .pole input[type="number"] {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--bdr);
+    border-radius: 10px;
+    font: inherit;
+    font-size: .9rem;
+    color: var(--txt);
+    background: var(--sur2);
+    transition: border-color .15s, box-shadow .15s;
+  }
+
+  .pole input::placeholder { color: var(--txt3); }
+  .pole input:hover { border-color: var(--bdr2); }
+
+  .pole input:focus {
+    outline: none;
+    border-color: var(--pink);
+    box-shadow: 0 0 0 4px var(--pink-dim);
+  }
+
+  .pole .napoveda {
+    margin-top: 4px;
+    font-size: .75rem;
+    color: var(--txt3);
+  }
+  .pole .napoveda code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem; color: var(--txt2); }
+
+  .radek { display: flex; gap: 10px; }
+  .radek .pole { flex: 1; }
+
+  .podporovane {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--bdr);
+    font-size: .78rem;
+    color: var(--txt3);
+    line-height: 1.6;
+  }
+  .podporovane strong { color: var(--txt2); font-weight: 600; }
+
+  button {
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--bdr);
+    background: var(--sur2);
+    color: var(--txt);
+    cursor: pointer;
+    transition: background .15s, opacity .15s, transform .08s;
+  }
+  button:hover:not(:disabled) { background: var(--sur3); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ---------- pravý sloupec: výstup + náhled ---------- */
+
+  .vystup .pole { position: relative; }
+
+  .vystup input, .vystup textarea {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .78rem;
+    padding: 9px 112px 9px 11px;
+    border: 1px solid var(--bdr);
+    border-radius: 10px;
+    color: var(--txt);
+    background: var(--sur2);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .vystup textarea { min-height: 66px; resize: vertical; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; }
+  .vystup input:focus, .vystup textarea:focus {
+    outline: none;
+    border-color: var(--pink);
+    box-shadow: 0 0 0 4px var(--pink-dim);
+  }
+
+  /* Chrome při overflow inputu ignoruje padding-right → tlačítko musí mít neprůhledné pozadí */
+  .kopirovat {
+    position: absolute;
+    right: 6px;
+    top: 26px;
+    padding: 6px 10px;
+    font-size: .75rem;
+    background: var(--sur-solid);
+    box-shadow: 0 0 0 4px var(--sur-solid);
+  }
+  .kopirovat:hover:not(:disabled) { background: var(--sur-solid); opacity: .85; }
+  .kopirovat.ok { color: var(--cyan); }
+
+  .prazdny {
+    padding: 28px 16px;
+    text-align: center;
+    font-size: .85rem;
+    color: var(--txt3);
+  }
+
+  .nahled-hlava {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+
+  .nahled-plocha {
+    border: 1px solid var(--bdr);
+    border-radius: 10px;
+    background:
+      repeating-conic-gradient(var(--checker1) 0% 25%, var(--checker2) 0% 50%) 0 0 / 22px 22px;
+    padding: 14px;
+    overflow-x: auto;
+  }
+
+  .nahled-plocha iframe {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  .nahled-pozn {
+    margin-top: 8px;
+    font-size: .75rem;
+    color: var(--txt3);
+  }
+
+  footer {
+    margin-top: 28px;
+    font-size: .75rem;
+    color: var(--txt3);
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-    <h1>Úřední deska pro QARO</h1>
-    <p class="sub">Vlož adresu RSS kanálu úřední desky a dostaneš odkaz na widget, který jde vložit do QARO jako iframe modul. Podporované systémy: Imunis (<code>*.imunis.cz</code>) a e-Deska.cz.</p>
 
-    <div class="card">
-        <label for="feed">RSS kanál úřední desky <span class="hint">— např. https://kadov.imunis.cz/edeska/feed/rss nebo https://www.e-deska.cz/rss.php?urad=410</span></label>
-        <input type="text" id="feed" placeholder="https://…" autocomplete="off">
-        <div class="row">
-            <div>
-                <label for="pp">Záznamů na stránku</label>
-                <input type="number" id="pp" value="5" min="1" max="50">
-            </div>
-            <div>
-                <label for="h">Výška iframe (px)</label>
-                <input type="number" id="h" value="900" min="200" step="50">
-            </div>
-        </div>
+<script>try{var t=localStorage.getItem("qaro-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+
+<div class="shell">
+
+<aside class="sidebar">
+  <a class="logo" href="./">
+    <img src="logo-qaro.svg" alt="QARO">
+    <span>E-DESKA</span>
+  </a>
+  <nav>
+    <a class="navlink aktivni" href="./">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
+      <span class="popisek">Generátor desky</span>
+    </a>
+  </nav>
+  <a class="navlink navlink-spodni" href="https://tools.digiday.cz">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    <span class="popisek">Rozcestník</span>
+  </a>
+  <a class="navlink" href="https://qaro.digiday.cz" target="_blank" rel="noreferrer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+    <span class="popisek">QARO admin</span>
+  </a>
+</aside>
+
+<div class="obsah">
+  <div class="deko" aria-hidden="true">
+    <div class="deko-1"></div>
+    <div class="deko-2"></div>
+    <div class="deko-3"></div>
+    <div class="deko-4"></div>
+  </div>
+
+  <div class="obsah-inner">
+
+  <div class="topbar">
+    <button type="button" id="b-tema" title="Přepnout světlý/tmavý režim"></button>
+    <span class="chip-info">Interní nástroj DigiDay</span>
+  </div>
+
+  <header class="hlavicka">
+    <div class="eyebrow">DIGIDAY / INTERNAL</div>
+    <h1>Úřední <span>deska</span></h1>
+    <p>Vlož adresu RSS kanálu úřední desky obce a zkopíruj adresu widgetu do iframe modulu v QARO. Deska se vykreslí v jednotném designu včetně PDF příloh, nic se nikam nenasazuje.</p>
+  </header>
+
+<main>
+
+  <section class="panel">
+    <h2>Nastavení desky</h2>
+
+    <div class="pole">
+      <label for="feed">RSS kanál úřední desky</label>
+      <input type="url" id="feed" placeholder="https://…" autocomplete="off" spellcheck="false">
+      <div class="napoveda">Imunis: <code>https://&lt;obec&gt;.imunis.cz/edeska/feed/rss</code> · e-Deska.cz: <code>https://www.e-deska.cz/rss.php?urad=&lt;id&gt;</code></div>
     </div>
 
-    <div class="card" id="result" hidden>
-        <label>Adresa widgetu (vlož do iframe modulu v QARO)</label>
-        <code class="out" id="url"></code>
-        <button class="copy" data-target="url" type="button">Zkopírovat adresu</button><span class="ok" id="ok-url" hidden>Zkopírováno ✓</span>
-
-        <label>Nebo hotový iframe kód</label>
-        <code class="out" id="embed"></code>
-        <button class="copy" data-target="embed" type="button">Zkopírovat kód</button><span class="ok" id="ok-embed" hidden>Zkopírováno ✓</span>
-
-        <p class="note">Widget načítá data přes proxy tohoto nástroje, takže funguje i pro desky bez CORS hlaviček (e-Deska.cz). Nová doména desky se musí přidat do seznamu povolených v <code>api/fetch.js</code>.</p>
+    <div class="radek">
+      <div class="pole">
+        <label for="pp">Záznamů na stránku</label>
+        <input type="number" id="pp" value="5" min="1" max="50">
+      </div>
+      <div class="pole">
+        <label for="h">Výška iframe (px)</label>
+        <input type="number" id="h" value="900" min="200" step="50">
+      </div>
     </div>
 
-    <div class="card" id="preview-card" hidden>
-        <label>Náhled</label>
-        <iframe class="preview" id="preview" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
-        <p class="note">Náhled běží se stejnými sandbox omezeními jako iframe v QARO.</p>
+    <div class="podporovane">
+      <strong>Podporované systémy:</strong> Imunis (*.imunis.cz) a e-Deska.cz. Widget načítá data přes vlastní proxy, takže funguje i pro desky bez CORS hlaviček. Nový systém úřední desky se povoluje v <code>api/fetch.js</code>.
     </div>
-</div>
+  </section>
+
+  <section class="panel">
+    <h2>Widget</h2>
+
+    <div class="prazdny" id="prazdny">Vlož adresu RSS kanálu a tady se objeví odkaz, iframe kód a živý náhled desky.</div>
+
+    <div class="vystup" id="vystup" hidden>
+      <div class="pole">
+        <label for="url">Adresa widgetu (do iframe modulu v QARO)</label>
+        <input type="text" id="url" readonly>
+        <button type="button" class="kopirovat" data-cil="url">Zkopírovat</button>
+      </div>
+
+      <div class="pole">
+        <label for="embed">Hotový iframe kód</label>
+        <textarea id="embed" readonly rows="3"></textarea>
+        <button type="button" class="kopirovat" data-cil="embed">Zkopírovat</button>
+      </div>
+
+      <div class="nahled-hlava">
+        <h2 style="margin:6px 0 0">Náhled</h2>
+      </div>
+      <div class="nahled-plocha">
+        <iframe id="nahled" title="Náhled úřední desky" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+      </div>
+      <div class="nahled-pozn">Náhled běží se stejnými sandbox omezeními jako iframe modul v QARO.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>DigiDay, interní nástroj. Deska se konfiguruje jen adresou v URL, nic se neukládá ani nenasazuje.</footer>
+
+  </div><!-- /obsah-inner -->
+</div><!-- /obsah -->
+</div><!-- /shell -->
 
 <script>
 (function () {
-    'use strict';
-    var $feed = document.getElementById('feed');
-    var $pp = document.getElementById('pp');
-    var $h = document.getElementById('h');
-    var $result = document.getElementById('result');
-    var $previewCard = document.getElementById('preview-card');
-    var $url = document.getElementById('url');
-    var $embed = document.getElementById('embed');
-    var $preview = document.getElementById('preview');
-    var previewTimer = null;
+  "use strict";
+  var btn = document.getElementById("b-tema");
+  var SLUNCE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+  var MESIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  function ikona() {
+    btn.innerHTML = document.documentElement.dataset.theme === "light" ? MESIC : SLUNCE;
+  }
+  btn.addEventListener("click", function () {
+    var dalsi = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = dalsi;
+    try { localStorage.setItem("qaro-theme", dalsi); } catch (e) {}
+    ikona();
+  });
+  ikona();
+})();
+</script>
 
-    function widgetUrl() {
-        var feed = $feed.value.trim();
-        if (!/^https?:\/\//i.test(feed)) return '';
-        var u = window.location.origin + '/w/?feed=' + encodeURIComponent(feed);
-        var pp = parseInt($pp.value, 10);
-        if (pp && pp !== 5) u += '&pp=' + pp;
-        return u;
+<script>
+(function () {
+  "use strict";
+
+  var $feed = document.getElementById("feed");
+  var $pp = document.getElementById("pp");
+  var $h = document.getElementById("h");
+  var $prazdny = document.getElementById("prazdny");
+  var $vystup = document.getElementById("vystup");
+  var $url = document.getElementById("url");
+  var $embed = document.getElementById("embed");
+  var $nahled = document.getElementById("nahled");
+  var previewTimer = null;
+
+  function widgetUrl() {
+    var feed = $feed.value.trim();
+    if (!/^https?:\/\//i.test(feed)) return "";
+    var u = window.location.origin + "/w/?feed=" + encodeURIComponent(feed);
+    var pp = parseInt($pp.value, 10);
+    if (pp && pp !== 5) u += "&pp=" + pp;
+    return u;
+  }
+
+  function update() {
+    var u = widgetUrl();
+    if (!u) {
+      $vystup.hidden = true;
+      $prazdny.hidden = false;
+      return;
     }
+    var h = parseInt($h.value, 10) || 900;
+    $url.value = u;
+    $embed.value = '<iframe src="' + u + '" style="width:100%;height:' + h + 'px;border:0;" loading="lazy" title="Úřední deska"></iframe>';
+    $nahled.style.height = Math.min(h, 720) + "px";
+    $prazdny.hidden = true;
+    $vystup.hidden = false;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      if ($nahled.src !== u) $nahled.src = u;
+    }, 600);
+  }
 
-    function update() {
-        var u = widgetUrl();
-        if (!u) {
-            $result.hidden = true;
-            $previewCard.hidden = true;
-            return;
-        }
-        var h = parseInt($h.value, 10) || 900;
-        $url.textContent = u;
-        $embed.textContent = '<iframe src="' + u + '" style="width:100%;height:' + h + 'px;border:0;" loading="lazy" title="Úřední deska"></iframe>';
-        $result.hidden = false;
-        $previewCard.hidden = false;
-        clearTimeout(previewTimer);
-        previewTimer = setTimeout(function () {
-            if ($preview.src !== u) $preview.src = u;
-        }, 600);
-    }
+  [$feed, $pp, $h].forEach(function (el) { el.addEventListener("input", update); });
 
-    [$feed, $pp, $h].forEach(function (el) { el.addEventListener('input', update); });
-
-    document.querySelectorAll('button.copy').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var text = document.getElementById(btn.dataset.target).textContent;
-            navigator.clipboard.writeText(text).then(function () {
-                var ok = document.getElementById('ok-' + btn.dataset.target);
-                ok.hidden = false;
-                setTimeout(function () { ok.hidden = true; }, 1800);
-            });
-        });
+  document.querySelectorAll("button.kopirovat").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = document.getElementById(btn.dataset.cil).value;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.classList.add("ok");
+        btn.textContent = "Zkopírováno ✓";
+        setTimeout(function () {
+          btn.classList.remove("ok");
+          btn.textContent = "Zkopírovat";
+        }, 1800);
+      });
     });
+  });
 })();
 </script>
 </body>
